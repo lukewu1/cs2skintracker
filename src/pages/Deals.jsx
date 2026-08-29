@@ -114,7 +114,7 @@ function Deals() {
             {listings.length === 0 && !loading ? (
               <tr>
                 <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#888' }}>
-                  No active listings found for the specified items.
+                  No good deals found for the specified items.
                 </td>
               </tr>
             ) : (
