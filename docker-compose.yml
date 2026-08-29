@@ -24,6 +24,7 @@ services:
       - CSFLOAT_API_KEY=${CSFLOAT_API_KEY}
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://cs2user:cs2password@postgres:5432/cs2deals
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     ports:
       - "8000:8000"
     depends_on:
