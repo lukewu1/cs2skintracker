@@ -1,0 +1,34 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: cs2user
+      POSTGRES_PASSWORD: cs2password
+      POSTGRES_DB: cs2deals
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  api:
+    build: ./backend
+    restart: always
+    environment:
+      - CSFLOAT_API_KEY=${CSFLOAT_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://cs2user:cs2password@postgres:5432/cs2deals
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - postgres
+
+volumes:
+  pgdata:
