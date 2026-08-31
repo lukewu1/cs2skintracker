@@ -1,5 +1,6 @@
 services:
   redis:
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     image: redis:7-alpine
     restart: always
     ports:
@@ -9,9 +10,9 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: cs2user
-      POSTGRES_PASSWORD: cs2password
-      POSTGRES_DB: cs2deals
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-users}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -23,7 +24,7 @@ services:
     environment:
       - CSFLOAT_API_KEY=${CSFLOAT_API_KEY}
       - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://cs2user:cs2password@postgres:5432/cs2deals
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-users}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     ports:
       - "8000:8000"
