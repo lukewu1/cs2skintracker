@@ -8,7 +8,7 @@ function Deals() {
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [sortBy, setSortBy] = useState('best_deal') // Fixed typo: 'best_deal'
+  const [sortBy, setSortBy] = useState('best_deal')
   const [skinQuery, setSkinQuery] = useState('')
 
   // Watchlist passed from Home page (or fallback default)
@@ -40,7 +40,7 @@ function Deals() {
         setListings((prevListings) => [...prevListings, ...newListings])
       }
     } catch (err) {
-      setError('Could not connect to the backend. Make sure uvicorn is running on port 8000.')
+      setError('Could not load listings. Check your connection and try again.')
     } finally {
       setLoading(false)
     }

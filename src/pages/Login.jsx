@@ -34,7 +34,7 @@ export default function Login() {
       setToken(data.access_token);
       navigate(from, { replace: true });
     } catch {
-      setError('Cannot reach the server. Check that uvicorn is running on port 8000.');
+      setError('Cannot reach the server. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
