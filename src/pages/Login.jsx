@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { setToken } from '../auth';
+import { setToken, API_URL } from '../auth';
 import './auth.css';
 
 export default function Login() {
@@ -20,7 +20,7 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/auth/token', {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         body: new URLSearchParams({ username: email, password }),
       });

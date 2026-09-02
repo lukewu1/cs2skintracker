@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { authFetch, SessionExpiredError } from '../auth'
 
 function Deals() {
   const location = useLocation()
@@ -29,7 +30,7 @@ function Deals() {
           limit: '20',
         })
 
-        const response = await fetch(`http://127.0.0.1:8000/api/listings?${params.toString()}`)
+        const response = await authFetch(`/api/listings?${params.toString()}`)
         if (!response.ok) {
           throw new Error(`Server returned status: ${response.status}`)
         }
@@ -40,6 +41,10 @@ function Deals() {
         setListings((prevListings) => [...prevListings, ...newListings])
       }
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        navigate('/login', { replace: true })
+        return
+      }
       setError('Could not load listings. Check your connection and try again.')
     } finally {
       setLoading(false)
