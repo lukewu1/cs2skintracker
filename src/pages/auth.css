@@ -1,0 +1,239 @@
+/* Consumes the tokens from index.css. Only the values that palette
+   doesn't define are declared here. */
+:root {
+  --auth-on-accent: #fff;
+  --auth-field-bg: var(--code-bg);
+  --auth-placeholder: #a5a1ab;
+  --auth-alert: #b3261e;
+  --auth-alert-bg: rgba(179, 38, 30, 0.08);
+  --auth-alert-border: rgba(179, 38, 30, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --auth-on-accent: #16171d;
+    --auth-placeholder: #6b6d78;
+    --auth-alert: #ff9c93;
+    --auth-alert-bg: rgba(255, 156, 147, 0.1);
+    --auth-alert-border: rgba(255, 156, 147, 0.25);
+  }
+}
+
+.auth-page {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  width: 100%;
+  max-width: 62rem;
+  margin: auto;          /* centres inside #root's flex column */
+  text-align: left;      /* #root sets center */
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* ---------- left panel ---------- */
+
+.auth-aside {
+  background: var(--accent-bg);
+  border-right: 1px solid var(--border);
+  padding: 2.25rem 2rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3rem;
+}
+
+.auth-wordmark {
+  font-family: var(--heading);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-h);
+  letter-spacing: -0.1px;
+}
+
+.auth-aside-copy {
+  font-family: var(--heading);
+  font-size: 1.375rem;
+  font-weight: 500;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  color: var(--text-h);
+  max-width: 20ch;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.auth-aside-note {
+  font-size: 0.8125rem;
+  line-height: 150%;
+  color: var(--text);
+  max-width: 32ch;
+  margin: 0.625rem 0 0;
+}
+
+/* ---------- right panel ---------- */
+
+.auth-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 21rem;
+}
+
+/* overrides the global h1 (56px, 32px margins) */
+.auth-title {
+  font-family: var(--heading);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 118%;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.auth-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text);
+  margin: 0.5rem 0 1.75rem;
+}
+
+.auth-subtitle a {
+  color: var(--accent);
+  text-decoration-color: var(--accent-border);
+  text-underline-offset: 3px;
+}
+
+.auth-subtitle a:hover {
+  text-decoration-color: currentColor;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.auth-field label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.auth-field input {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--text-h);
+  background: var(--auth-field-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.auth-field input::placeholder {
+  color: var(--auth-placeholder);
+}
+
+.auth-field input:hover {
+  border-color: var(--accent-border);
+}
+
+.auth-field input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.auth-error {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  line-height: 145%;
+  color: var(--auth-alert);
+  background: var(--auth-alert-bg);
+  border: 1px solid var(--auth-alert-border);
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 1.125rem;
+}
+
+.auth-error svg {
+  flex: none;
+  margin-top: 0.1875rem;
+}
+
+.auth-button {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--auth-on-accent);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.6875rem 1rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.auth-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.auth-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 860px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+    margin: 1rem auto;
+  }
+
+  .auth-aside {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 1.5rem 1.75rem;
+    gap: 1.25rem;
+  }
+
+  .auth-aside-copy {
+    font-size: 1.125rem;
+    max-width: none;
+  }
+
+  .auth-aside-note {
+    display: none;
+  }
+
+  .auth-main {
+    padding: 2rem 1.5rem 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-field input,
+  .auth-button {
+    transition: none;
+  }
+}
