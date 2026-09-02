@@ -1,4 +1,4 @@
-api.yourdomain.com {
+api.cs2.lukewu.dev {
 	encode gzip
 	reverse_proxy api:8000
 }
