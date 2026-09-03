@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { setToken, API_URL } from '../auth';
@@ -25,8 +24,12 @@ export default function Login() {
         body: new URLSearchParams({ username: email, password }),
       });
 
-      if (!res.ok) {
+      if (res.status === 401) {
         setError('That email and password do not match an account.');
+        return;
+      }
+      if (!res.ok) {
+        setError('Something went wrong signing in. Try again.');
         return;
       }
 
@@ -43,12 +46,18 @@ export default function Login() {
   return (
     <div className="auth-page">
       <aside className="auth-aside">
-        <span className="auth-wordmark">CS2 Skin Tracker</span>
+        <div className="auth-logo">
+          <img src="/cs2skintracker.png" alt="" width="40" height="40" />
+          <span className="auth-wordmark">CS2 Skin Tracker</span>
+        </div>
+
         <div>
           <p className="auth-aside-copy">Watch the market so you don't have to.</p>
-          <p className="auth-aside-note">
-            Your watchlist and scan history stay tied to your account.
-          </p>
+          <ul className="auth-points">
+            <li>Live CSFloat listings, filtered by float and price</li>
+            <li>Watchlists tied to your account, not your browser</li>
+            <li>Cached scans, so repeat searches return instantly</li>
+          </ul>
         </div>
       </aside>
 
