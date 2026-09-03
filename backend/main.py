@@ -17,7 +17,7 @@ from auth import verify_password, get_password_hash, create_access_token, get_cu
 CSFLOAT_API_KEY = os.environ["CSFLOAT_API_KEY"]
 CSFLOAT_URL = "https://csfloat.com/api/v1/listings"
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-CACHE_TTL_SECONDS = 60
+CACHE_TTL_SECONDS = 300
 
 VALID_SORTS = {"best_deal", "lowest_price", "most_recent", "lowest_float", "highest_discount"}
 
@@ -116,7 +116,7 @@ def normalize_listing(raw: dict) -> dict:
 async def listings(
     market_hash_name: str = Query(..., min_length=1, max_length=128),
     sort_by: str = Query("best_deal"),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(5, ge=1, le=50),
     user: User = Depends(get_current_user),
 ):
     if sort_by not in VALID_SORTS:

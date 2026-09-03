@@ -27,7 +27,7 @@ function Deals() {
         const params = new URLSearchParams({
           market_hash_name: skinName,
           sort_by: sort,
-          limit: '20',
+          limit: '5',
         })
 
         const response = await authFetch(`/api/listings?${params.toString()}`)
