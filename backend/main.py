@@ -42,8 +42,7 @@ allowed = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") i
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed + ["http://localhost:5173"],
-    # Get ready for vercel deployment
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://cs2skintracker-.*\.vercel\.app",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

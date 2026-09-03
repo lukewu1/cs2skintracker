@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_URL } from '../auth'
+import { track } from '@vercel/analytics';
 
 export default function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -36,6 +37,7 @@ export default function RegisterForm() {
         return;
       }
 
+      track('Register Succeeded');
       navigate('/login');
     } catch {
       setError('Cannot reach the server. Check your connection and try again.');

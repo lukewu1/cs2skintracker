@@ -1,109 +1,142 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-// import './Home.css'
+import { clearToken } from '../auth'
+import './Home.css'
+
+const STORAGE_KEY = 'watchlist'
+const DEFAULT_WATCHLIST = [
+  'AK-47 | Redline (Field-Tested)',
+  'AWP | Asiimov (Field-Tested)',
+]
+
+function loadWatchlist() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? parsed : DEFAULT_WATCHLIST
+  } catch {
+    return DEFAULT_WATCHLIST
+  }
+}
 
 function Home() {
   const navigate = useNavigate()
-  
-  // State for the input box and the list of skins
-  const [inputValue, setInputValue] = useState('')
-  const [watchlist, setWatchlist] = useState([
-    'AK-47 | Redline (Field-Tested)',
-    'AWP | Asiimov (Field-Tested)'
-  ])
 
-  // Add item to list
+  const [inputValue, setInputValue] = useState('')
+  // lazy initializer so localStorage is read once, not on every render
+  const [watchlist, setWatchlist] = useState(loadWatchlist)
+  const [message, setMessage] = useState('')
+
+  // Persisting here means the list survives a refresh and the login
+  // redirect, neither of which router state does.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(watchlist))
+    } catch {
+      // storage full or blocked: the list still works for this session 
+    }
+  }, [watchlist])
+
   const handleAddItem = (e) => {
     e.preventDefault()
+    setMessage('')
+
     const trimmed = inputValue.trim()
-    if (trimmed && !watchlist.includes(trimmed)) {
-      setWatchlist([...watchlist, trimmed])
-      setInputValue('')
-    }
-  }
+    if (!trimmed) return
 
-  // Remove single item
-  const handleRemoveItem = (indexToRemove) => {
-    setWatchlist(watchlist.filter((_, idx) => idx !== indexToRemove))
-  }
-
-  // Navigate to Deals page and pass the user's custom watchlist
-  const handleScan = () => {
-    if (watchlist.length === 0) {
-      alert('Please add at least one skin to scan.')
+    if (watchlist.includes(trimmed)) {
+      setMessage('That skin is already on your watchlist.')
       return
     }
+
+    setWatchlist([...watchlist, trimmed])
+    setInputValue('')
+  }
+
+  const handleRemoveItem = (skin) => {
+    setMessage('')
+    setWatchlist(watchlist.filter((s) => s !== skin))
+  }
+
+  const handleScan = () => {
     navigate('/deals', { state: { watchlist } })
   }
 
-  return (
-    <div style={{ padding: '32px', maxWidth: '600px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h2>CS2 Skin Tracker</h2>
-      <p style={{ color: '#666' }}>Enter a list of skins you would like to scan on CSFloat:</p>
+  const handleSignOut = () => {
+    clearToken()
+    navigate('/login', { replace: true })
+  }
 
-      {/* Input + Add Button */}
-      <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <img src="/cs2skintracker.png" alt="" width="32" height="32" />
+        <span className="app-wordmark">CS2 Skin Tracker</span>
+        <div className="app-header-spacer" />
+        <button type="button" className="app-link" onClick={handleSignOut}>
+          Sign out
+        </button>
+      </header>
+
+      <h1 className="app-title">Your watchlist</h1>
+      <p className="app-subtitle">
+        Add the skins you want to track. Scanning checks every one against live
+        CSFloat listings and sorts them by whichever measure you pick.
+      </p>
+
+      {message && <div className="app-note" role="status">{message}</div>}
+
+      <form className="app-add" onSubmit={handleAddItem}>
         <input
           type="text"
+          aria-label="Skin name"
           placeholder="e.g. Desert Eagle | Printstream (Field-Tested)"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          style={{ flex: 1, padding: '10px', fontSize: '14px', borderRadius: '4px', border: '1px solid #ccc' }}
         />
-        <button 
-          type="submit" 
-          style={{ padding: '10px 18px', cursor: 'pointer', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 600 }}
+        <button
+          type="submit"
+          className="app-button-secondary"
+          disabled={!inputValue.trim()}
         >
-          Add Item
+          Add
         </button>
       </form>
 
-      {/* Watchlist Display */}
-      <ul style={{ listStyle: 'none', padding: 0, marginBottom: '24px' }}>
-        {watchlist.map((skin, index) => (
-          <li
-            key={index}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 12px',
-              marginBottom: '8px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px'
-            }}
-          >
-            <span style={{ fontWeight: 500 }}>{skin}</span>
-            <button
-              type="button"
-              onClick={() => handleRemoveItem(index)}
-              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
+      {watchlist.length === 0 ? (
+        <div className="app-empty">
+          Nothing tracked yet. Add a skin above to get started.
+        </div>
+      ) : (
+        <ul className="app-list">
+          {watchlist.map((skin) => (
+            <li key={skin}>
+              <span className="app-item-name">{skin}</span>
+              <button
+                type="button"
+                className="app-remove"
+                aria-label={`Remove ${skin}`}
+                onClick={() => handleRemoveItem(skin)}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {/* Scan Button */}
-      <button 
+      <button
         type="button"
-        onClick={handleScan} 
-        style={{
-          width: '100%',
-          padding: '12px',
-          background: '#22c55e',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          fontSize: '16px',
-          fontWeight: 600,
-          cursor: 'pointer'
-        }}
+        className="app-button"
+        onClick={handleScan}
+        disabled={watchlist.length === 0}
       >
-        Scan Deals ({watchlist.length} items)
+        Scan {watchlist.length} {watchlist.length === 1 ? 'skin' : 'skins'}
       </button>
+
+      {watchlist.length === 0 && (
+        <p className="app-hint">Add at least one skin to scan.</p>
+      )}
     </div>
   )
 }
