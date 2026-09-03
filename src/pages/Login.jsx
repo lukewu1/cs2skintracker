@@ -20,7 +20,7 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/token`, {
         method: 'POST',
         body: new URLSearchParams({ username: email, password }),
       });
