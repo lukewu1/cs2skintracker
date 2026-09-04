@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clearToken } from '../auth'
-import './Home.css'
+import './app.css'
 
 const STORAGE_KEY = 'watchlist'
 const DEFAULT_WATCHLIST = [

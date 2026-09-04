@@ -1,10 +1,17 @@
+/* Shared shell for the signed-in pages. Uses the same tokens as auth.css
+   so the app and the login screen read as one product. */
+
 .app-shell {
   width: 100%;
   max-width: 46rem;
   margin: 0 auto;
   padding: 1.5rem 1.25rem 4rem;
-  text-align: left;         
+  text-align: left;          /* #root sets center */
   box-sizing: border-box;
+}
+
+.app-shell-wide {
+  max-width: 62rem;
 }
 
 /* ---------- header ---------- */
@@ -77,15 +84,17 @@
   max-width: 52ch;
 }
 
-/* ---------- add form ---------- */
+/* ---------- inputs and controls ---------- */
 
 .app-add {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
-.app-add input {
+.app-add input,
+.app-add select {
   font: inherit;
   font-size: 0.875rem;
   color: var(--text-h);
@@ -93,20 +102,29 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6875rem 0.8125rem;
-  flex: 1;
-  min-width: 0;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.app-add input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.app-add select {
+  cursor: pointer;
 }
 
 .app-add input::placeholder {
   color: var(--auth-placeholder);
 }
 
-.app-add input:hover {
+.app-add input:hover,
+.app-add select:hover {
   border-color: var(--accent-border);
 }
 
-.app-add input:focus-visible {
+.app-add input:focus-visible,
+.app-add select:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
@@ -207,6 +225,110 @@
   margin-bottom: 1.5rem;
 }
 
+/* ---------- results table ---------- */
+
+.app-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;          /* narrow screens scroll rather than squash */
+}
+
+.app-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  min-width: 40rem;
+}
+
+.app-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.app-table td {
+  padding: 0.8125rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-h);
+  vertical-align: middle;
+}
+
+.app-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.app-table tbody tr:hover td {
+  background: var(--accent-bg);
+}
+
+.app-cell-name {
+  font-weight: 500;
+  min-width: 14rem;
+}
+
+.app-cell-price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-cell-mono {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.app-cell-muted {
+  font-size: 0.8125rem;
+  color: var(--text);
+  max-width: 16rem;
+}
+
+.app-cell-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text);
+}
+
+.app-tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.app-view {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.app-view:hover {
+  background: var(--accent-bg);
+}
+
+.app-view:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
 /* ---------- primary action ---------- */
 
 .app-button {
@@ -257,11 +379,58 @@
   margin-bottom: 1rem;
 }
 
+.app-error {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  line-height: 145%;
+  color: var(--auth-alert);
+  background: var(--auth-alert-bg);
+  border: 1px solid var(--auth-alert-border);
+  border-radius: 8px;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.app-error svg {
+  flex: none;
+  margin-top: 0.1875rem;
+}
+
+.app-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.app-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: app-spin 0.7s linear infinite;
+  flex: none;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-add input,
+  .app-add select,
   .app-button,
   .app-button-secondary,
   .app-remove {
     transition: none;
+  }
+
+  .app-spinner {
+    animation: none;
   }
 }

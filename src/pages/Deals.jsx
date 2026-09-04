@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { authFetch, SessionExpiredError } from '../auth'
+import './app.css'
 
 function Deals() {
   const location = useLocation()
