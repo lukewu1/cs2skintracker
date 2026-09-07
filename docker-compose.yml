@@ -65,3 +65,9 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+
+logging:
+driver: json-file
+options:
+  max-size: "10m"
+  max-file: "3"
