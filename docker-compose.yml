@@ -44,8 +44,6 @@ services:
       # Your Vercel production domain, comma-separated if more than one.
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?required}
     ports:
-      # Loopback only. Caddy reaches this over the internal network;
-      # 127.0.0.1 just lets you curl it while SSH'd in.
       - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
@@ -53,20 +51,5 @@ services:
       redis:
         condition: service_healthy
 
-  caddy:
-    image: caddy:2
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # certificates live here, don't delete
-      - caddy_config:/config
-    depends_on:
-      - api
-
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
