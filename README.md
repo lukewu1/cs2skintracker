@@ -2,7 +2,7 @@
 
 Pulls CS2 skin listings from the CSFloat API, compares each asking price against CSFloat's own predicted market value, and serves the underpriced ones through a React dashboard.
 
-Stack: FastAPI + PostgreSQL + React (Vite), behind Caddy on a single EC2 box.
+Stack: FastAPI + PostgreSQL + React (Vite), behind Caddy on a single EC2 t3 instance.
 
 <!-- TODO: drop a dashboard screenshot here. A README with a picture of the
      thing reads very differently from one without. -->
