@@ -39,10 +39,6 @@ Because the index is ordered on both columns, `WHERE discount_percent >= 20 ORDE
      number with a plan behind it is worth more than any adjective. If it turns
      out to be 40ms, say 40ms. -->
 
-```
-[paste EXPLAIN ANALYZE output here]
-```
-
 ## Setup
 
 Needs Python 3.10+, PostgreSQL 14+, Node 18+.
@@ -115,27 +111,8 @@ Upserts use `ON CONFLICT (id) DO UPDATE`, so re-running the scraper refreshes pr
 
 ## Notes on a few choices
 
-**Why the scraper is separate.** Mostly forced. Cloudflare's data-center IP blocking meant the obvious design — cron job on the same EC2 box — didn't work at all. The split turned out fine: ingest and serve scale independently, and the API stays read-only.
+**Why the scraper is separate.** Mostly forced. Cloudflare blocked data-center IPs. CSFLOAT explicitly says the reason for this is to prevent sniper and auto-buy bots. The split turned out fine: ingest and serve scale independently, and the API stays read-only.
 
 **Why FastAPI over Flask.** The EC2 instance is single-core. An async event loop handles concurrent dashboard reads without spawning a thread per request.
 
 **Why the ORM.** Parameterization comes free, which matters since the filter params come straight off query strings. `Depends(get_db)` handles session lifecycle without boilerplate.
-
-<!-- TODO: this is the section that most makes a README look human. Write two or
-     three sentences about something that actually went wrong — a rate limit you
-     hit, a float precision bug, a wear value that didn't parse, the first time
-     the upsert deadlocked. Then delete this comment. -->
-
-## Known rough edges
-
-<!-- TODO: fill in honestly, or cut the section. Some candidates:
-     - no rate limiting on /deals
-     - scraper has to be run by hand
-     - no tests
-     - stale listings are never pruned -->
-
-- [fill in]
-
-## License
-
-MIT. See [LICENSE](LICENSE).
