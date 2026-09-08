@@ -64,7 +64,7 @@ export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/cs2_db"
 
 # Execute scraper script
 python backend/scrape.py
-3. Frontend Setup# Navigate to frontend / root
+3. Frontend Setup# Install npm dependencies
 npm install
 
 # Start Vite development server
