@@ -2,7 +2,7 @@
 
 Pulls CS2 skin listings from the CSFloat API, compares each asking price against CSFloat's own predicted market value, and serves the underpriced ones through a React dashboard.
 
-Stack: FastAPI + PostgreSQL + React (Vite), behind Caddy on a single EC2 t3 instance.
+Stack: FastAPI + PostgreSQL + React (Vite), behind nginx on a single EC2 t3 instance.
 
 <!-- TODO: drop a dashboard screenshot here. A README with a picture of the
      thing reads very differently from one without. -->
@@ -18,7 +18,7 @@ discount_percent = (predicted_price - price) / predicted_price * 100
 
 The API on EC2 only ever reads. It has no idea the scraper exists.
 
-Everything else is conventional: FastAPI with SQLAlchemy and Pydantic, JWT auth with bcrypt hashing, Caddy in front for TLS and compression.
+Everything else is conventional: FastAPI with SQLAlchemy and Pydantic, JWT auth with bcrypt hashing, nginx in front for TLS and compression.
 
 ## Query performance
 
@@ -75,7 +75,7 @@ npm install
 npm run dev
 ```
 
-There's a `docker-compose.yml` that brings up FastAPI, Postgres, and Caddy together for deployment.
+There's a `docker-compose.yml` that brings up FastAPI, Postgres, and nginx together for deployment.
 
 ## API
 
