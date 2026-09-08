@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import uuid
+from pathlib import Path
 
 import httpx
 from sqlalchemy import select, func
@@ -99,6 +100,15 @@ async def scrape(skins: list[str]) -> None:
         print(f"table now holds {total} rows across {runs} runs")
 
 
+def load_skins_from_file(path: str) -> list[str]:
+    lines = Path(path).read_text().splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+
+
 if __name__ == "__main__":
-    targets = sys.argv[1:] or DEFAULT_SKINS
+    args = sys.argv[1:]
+    if len(args) == 1 and Path(args[0]).is_file():
+        targets = load_skins_from_file(args[0])
+    else:
+        targets = args or DEFAULT_SKINS
     asyncio.run(scrape(targets))
