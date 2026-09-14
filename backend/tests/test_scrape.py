@@ -1,0 +1,83 @@
+from scrape import normalize
+
+
+def make_raw(**overrides):
+    raw = {
+        "id": 12345,
+        "price": 2599,  # cents
+        "item": {
+            "market_hash_name": "AK-47 | Redline (Field-Tested)",
+            "float_value": 0.234,
+            "paint_seed": 42,
+            "is_stattrak": False,
+            "stickers": [],
+        },
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_normalize_converts_price_from_cents_to_dollars():
+    row = normalize(make_raw(price=2599), run_id="run-1")
+    assert row.price_usd == 25.99
+
+
+def test_normalize_missing_price_returns_none():
+    raw = make_raw()
+    del raw["price"]
+    assert normalize(raw, run_id="run-1") is None
+
+
+def test_normalize_non_numeric_price_returns_none():
+    row = normalize(make_raw(price="not-a-number"), run_id="run-1")
+    assert row is None
+
+
+def test_normalize_carries_float_and_paint_seed():
+    row = normalize(make_raw(), run_id="run-1")
+    assert row.float_value == 0.234
+    assert row.paint_seed == 42
+
+
+def test_normalize_falls_back_to_item_name_when_no_market_hash_name():
+    raw = make_raw()
+    del raw["item"]["market_hash_name"]
+    raw["item"]["item_name"] = "AK-47 | Redline"
+    row = normalize(raw, run_id="run-1")
+    assert row.market_hash_name == "AK-47 | Redline"
+
+
+def test_normalize_defaults_name_when_nothing_available():
+    raw = make_raw()
+    del raw["item"]["market_hash_name"]
+    row = normalize(raw, run_id="run-1")
+    assert row.market_hash_name == "Unknown item"
+
+
+def test_normalize_collects_sticker_names():
+    raw = make_raw()
+    raw["item"]["stickers"] = [{"name": "Katowice 2014"}, {"name": "Crown (Foil)"}]
+    row = normalize(raw, run_id="run-1")
+    assert row.stickers == ["Katowice 2014", "Crown (Foil)"]
+
+
+def test_normalize_empty_stickers_becomes_none():
+    row = normalize(make_raw(), run_id="run-1")
+    assert row.stickers is None
+
+
+def test_normalize_stattrak_flag_is_coerced_to_bool():
+    raw = make_raw()
+    raw["item"]["is_stattrak"] = True
+    row = normalize(raw, run_id="run-1")
+    assert row.is_stattrak is True
+
+
+def test_normalize_builds_csfloat_url_from_listing_id():
+    row = normalize(make_raw(id=999), run_id="run-1")
+    assert row.url == "https://csfloat.com/item/999"
+
+
+def test_normalize_tags_row_with_run_id():
+    row = normalize(make_raw(), run_id="run-abc")
+    assert row.run_id == "run-abc"
