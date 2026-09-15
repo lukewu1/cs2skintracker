@@ -1,6 +1,6 @@
 # CS2 Skin Tracker
 
-Pulls CS2 skin listings from the CSFloat API, compares each asking price against CSFloat's own predicted market value, and serves the underpriced ones through a React dashboard.
+Pulls CS2 skin listings from the CSFloat API, compares each listing's price against that skin's own 7-day trailing average, and serves the underpriced ones through a React dashboard.
 
 Stack: FastAPI + PostgreSQL + React (Vite), behind nginx on a single EC2 t3 instance.
 
@@ -10,34 +10,32 @@ Stack: FastAPI + PostgreSQL + React (Vite), behind nginx on a single EC2 t3 inst
 
 ## How it works
 
-The scraper (`backend/scrape.py`) runs on my own machine rather than on the server. CSFloat sits behind Cloudflare, which blocks requests from AWS IP ranges, so anything running on EC2 gets a 403 immediately. Running it from a residential connection sidesteps that. It fetches `/v1/listings`, computes a discount for each item, and batch-upserts straight into the remote Postgres instance:
+The scraper (`backend/scrape.py`) runs on my own machine rather than on the server, on a `launchd` schedule. CSFloat sits behind Cloudflare, which blocks requests from AWS IP ranges, so anything running on EC2 gets a 403 immediately. Running it from a residential connection sidesteps that. It fetches `/v1/listings` (excluding auctions — only `type=buy_now`), tags every row with a `run_id` for that invocation, and batch-inserts snapshots straight into the remote Postgres instance over an SSH tunnel.
 
-```
-discount_percent = (predicted_price - price) / predicted_price * 100
+The API on EC2 only ever reads — it has no discount stored anywhere. `GET /api/listings` computes it at request time, per listing, against that skin's own trailing average over `backend/main.py`'s `BASELINE_WINDOW_DAYS` (7 days):
+
+```python
+discount_pct = round((baseline_price - price) / baseline_price * 100, 1)
 ```
 
-The API on EC2 only ever reads. It has no idea the scraper exists.
+Results are cached in Redis for `CACHE_TTL_SECONDS` (5 minutes), keyed on skin + sort + limit.
 
 Everything else is conventional: FastAPI with SQLAlchemy and Pydantic, JWT auth with bcrypt hashing, nginx in front for TLS and compression.
 
 ## Query performance
 
-The dashboard's main query filters on discount and sorts on price. There's a composite index for exactly that, in `backend/models.py`:
+`GET /api/listings` always filters on `market_hash_name` and either sorts on `price_usd` or `fetched_at`. Two composite indexes on `skin_listings` (`backend/database.py`) cover that:
 
 ```python
 __table_args__ = (
-    Index('ix_deals_discount_price', 'discount_percent', 'price'),
+    Index("idx_skin_name_fetched", "market_hash_name", "fetched_at"),
+    Index("idx_skin_name_price", "market_hash_name", "price_usd"),
 )
 ```
 
-Because the index is ordered on both columns, `WHERE discount_percent >= 20 ORDER BY price ASC LIMIT 50` walks a pre-sorted structure and stops after 50 leaves. No sort node, no full scan.
-
-<!-- TODO: replace the block below with real output. Run:
-       EXPLAIN ANALYZE SELECT * FROM deals WHERE discount_percent >= 20
-       ORDER BY price ASC LIMIT 50;
-     Paste the actual planner output and the actual execution time. A measured
-     number with a plan behind it is worth more than any adjective. If it turns
-     out to be 40ms, say 40ms. -->
+<!-- TODO: replace this with a real EXPLAIN ANALYZE run against skin_listings
+     for a skin with meaningful row counts. A measured number with a plan
+     behind it is worth more than any adjective. -->
 
 ## Setup
 
@@ -47,25 +45,26 @@ Needs Python 3.10+, PostgreSQL 14+, Node 18+.
 
 ```bash
 git clone https://github.com/your-username/cs2skintracker.git
-cd cs2skintracker
+cd cs2skintracker/backend
 
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/cs2_db"
-export SECRET_KEY="your-super-secret-jwt-key"
+export JWT_SECRET_KEY="your-super-secret-jwt-key"
+export REDIS_URL="redis://localhost:6379"
+export CSFLOAT_API_KEY="your_api_key_here"
+export ALLOWED_ORIGINS="http://localhost:5173"
 
-uvicorn backend.main:app --reload --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
-**Scraper** — run this locally, not on the server:
+**Scraper** — run this locally, not on the server (from `backend/`, same env vars as above):
 
 ```bash
-export CSFLOAT_API_KEY="your_api_key_here"
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/cs2_db"
-
-python backend/scrape.py
+python scrape.py                 # DEFAULT_SKINS, a handful of well-known ones
+python scrape.py skins.txt       # everything in a text file, one market_hash_name per line
 ```
 
 **Frontend**
@@ -89,35 +88,36 @@ Auth (hashing, JWT signing/expiry) and `scrape.py`'s `normalize()` are tested as
 
 ## API
 
+All routes except `/` and auth require `Authorization: Bearer <token>`.
+
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/deals` | Filtered, sorted list of deals. |
-| `GET` | `/deals/{deal_id}` | Single listing by CSFloat ID. |
-| `POST` | `/register` | New account. Body: `username`, `email`, `password`. |
-| `POST` | `/token` | OAuth2 password form. Returns a JWT. |
+| `GET` | `/` | Health check. |
+| `POST` | `/api/auth/register` | New account. Body: `username`, `password`. |
+| `POST` | `/api/auth/token` | OAuth2 password form. Returns a JWT. |
+| `GET` | `/api/auth/me` | Current user. |
+| `GET` | `/api/skins` | Every distinct `market_hash_name` on record, with its last-seen time. |
+| `GET` | `/api/listings` | Listings for one skin's latest scrape run. |
 
-`/deals` accepts `min_discount` (float), `max_price` (float), `category` (string), `sort_by` (string), and `limit` (int).
+`/api/listings` requires `market_hash_name` and accepts `sort_by` (`best_deal` \| `lowest_price` \| `lowest_float` \| `most_recent`, default `best_deal`) and `limit` (1-50, default 20). Response includes each listing's `discount_pct` against the skin's 7-day baseline, plus `cached` (whether it came from the Redis cache).
 
 ## Schema
 
-The `deals` table:
+The `skin_listings` table — one row per listing per scrape run, so the same CSFloat listing reappearing in a later run becomes a new row, not an overwrite. That's what makes price history (and the 7-day baseline) possible.
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
-| `id` | `VARCHAR(64)` | Primary key. CSFloat's listing ID, used directly. |
-| `market_hash_name` | `VARCHAR(255)` | Indexed. Full name, e.g. `AK-47 \| Redline (Field-Tested)`. |
-| `weapon_type` | `VARCHAR(50)` | Indexed. AK-47, Karambit, etc. |
-| `category` | `VARCHAR(50)` | Indexed. Rifle, Knife, Gloves. |
-| `wear_name` | `VARCHAR(50)` | Factory New, Field-Tested, etc. |
-| `wear_float` | `DOUBLE PRECISION` | Indexed. 0.0–1.0. |
-| `price` | `DOUBLE PRECISION` | Indexed. Asking price, USD. |
-| `predicted_price` | `DOUBLE PRECISION` | CSFloat's valuation. |
-| `discount_percent` | `DOUBLE PRECISION` | Indexed. Computed at ingest. |
+| `id` | `INTEGER` | Primary key, autoincrement (surrogate — not CSFloat's ID). |
+| `listing_id` | `VARCHAR(64)` | Indexed. CSFloat's listing ID; repeats across runs. |
+| `run_id` | `VARCHAR(36)` | Indexed. Groups every row written by one scrape invocation. |
+| `market_hash_name` | `VARCHAR(128)` | Indexed. Full name, e.g. `AK-47 \| Redline (Field-Tested)`. |
+| `price_usd` | `DOUBLE PRECISION` | Asking price. |
+| `float_value` | `DOUBLE PRECISION` | Nullable. 0.0–1.0. |
+| `paint_seed` | `INTEGER` | Nullable. |
 | `is_stattrak` | `BOOLEAN` | |
-| `is_souvenir` | `BOOLEAN` | |
-| `icon_url` | `VARCHAR(512)` | Thumbnail. |
-
-Upserts use `ON CONFLICT (id) DO UPDATE`, so re-running the scraper refreshes prices on listings it's already seen instead of erroring.
+| `stickers` | `JSON` | Nullable. List of sticker names. |
+| `url` | `VARCHAR(255)` | Nullable. `https://csfloat.com/item/{listing_id}`. |
+| `fetched_at` | `TIMESTAMPTZ` | Indexed. Defaults to insert time. |
 
 ## Notes on a few choices
 
