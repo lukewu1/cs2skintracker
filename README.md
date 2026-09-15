@@ -78,6 +78,8 @@ There's a `docker-compose.yml` that brings up FastAPI, Postgres, and nginx toget
 
 ## Testing
 
+**Backend**
+
 ```bash
 pip install -r backend/requirements-dev.txt
 cd backend
@@ -85,6 +87,16 @@ pytest
 ```
 
 Auth (hashing, JWT signing/expiry) and `scrape.py`'s `normalize()` are tested as pure functions. The API routes are tested end-to-end against the real FastAPI app with SQLite swapped in for Postgres and an in-memory fake standing in for Redis, so the suite needs no live database, tunnel, or external service to run.
+
+**Frontend**
+
+```bash
+npm run test
+```
+
+Covers `src/auth.js` (token storage, `authFetch`'s header/401 handling) with a stubbed `localStorage` and mocked `fetch`, so no backend needs to be running.
+
+Both suites run in CI on every push/PR via `.github/workflows/test.yml`.
 
 ## API
 
