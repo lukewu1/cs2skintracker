@@ -5,6 +5,7 @@ def make_raw(**overrides):
     raw = {
         "id": 12345,
         "price": 2599,  # cents
+        "type": "buy_now",
         "item": {
             "market_hash_name": "AK-47 | Redline (Field-Tested)",
             "float_value": 0.234,
@@ -20,6 +21,11 @@ def make_raw(**overrides):
 def test_normalize_converts_price_from_cents_to_dollars():
     row = normalize(make_raw(price=2599), run_id="run-1")
     assert row.price_usd == 25.99
+
+
+def test_normalize_rejects_auction_listings():
+    row = normalize(make_raw(type="auction"), run_id="run-1")
+    assert row is None
 
 
 def test_normalize_missing_price_returns_none():

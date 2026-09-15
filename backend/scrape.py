@@ -29,7 +29,16 @@ DEFAULT_SKINS = [
 
 
 def normalize(raw: dict, run_id: str) -> SkinListing | None:
-    """CSFloat's payload -> one snapshot row. None if it can't be priced."""
+    """CSFloat's payload -> one snapshot row. None if it can't be priced.
+
+    Auctions are skipped even though the request already filters on
+    type=buy_now: an auction's "price" is a starting/current bid, not a
+    fixed price, so it would corrupt the discount and lowest-price sorts
+    if one ever slipped through.
+    """
+    if raw.get("type") == "auction":
+        return None
+
     item = raw.get("item") or {}
     price = raw.get("price")
     if not isinstance(price, (int, float)):
@@ -65,6 +74,7 @@ async def fetch_listings(http: httpx.AsyncClient, skin: str) -> httpx.Response |
                     "market_hash_name": skin,
                     "sort_by": "lowest_price",
                     "limit": LIMIT_PER_SKIN,
+                    "type": "buy_now",
                 },
             )
         except httpx.RequestError as exc:
