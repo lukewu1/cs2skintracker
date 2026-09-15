@@ -13,7 +13,11 @@ CSFLOAT_API_KEY = os.environ["CSFLOAT_API_KEY"]
 CSFLOAT_URL = "https://csfloat.com/api/v1/listings"
 
 LIMIT_PER_SKIN = 20
-REQUEST_SPACING_SECONDS = 2.0   
+REQUEST_SPACING_SECONDS = 2.0
+
+MAX_429_RETRIES = 5
+BACKOFF_BASE_SECONDS = 10.0
+BACKOFF_MAX_SECONDS = 120.0
 
 DEFAULT_SKINS = [
     "AK-47 | Redline (Field-Tested)",
@@ -47,6 +51,44 @@ def normalize(raw: dict, run_id: str) -> SkinListing | None:
     )
 
 
+async def fetch_listings(http: httpx.AsyncClient, skin: str) -> httpx.Response | None:
+    """GET one skin's listings, retrying on 429 with exponential backoff.
+
+    Returns None (caller skips the skin) on repeated rate-limiting, a
+    non-200/429 status, or a network error.
+    """
+    for attempt in range(MAX_429_RETRIES + 1):
+        try:
+            res = await http.get(
+                CSFLOAT_URL,
+                params={
+                    "market_hash_name": skin,
+                    "sort_by": "lowest_price",
+                    "limit": LIMIT_PER_SKIN,
+                },
+            )
+        except httpx.RequestError as exc:
+            print(f"  {skin}: network error ({exc.__class__.__name__})")
+            return None
+
+        if res.status_code == 429:
+            if attempt == MAX_429_RETRIES:
+                print(f"  {skin}: 429, giving up after {MAX_429_RETRIES} retries")
+                return None
+            wait = min(BACKOFF_BASE_SECONDS * (2 ** attempt), BACKOFF_MAX_SECONDS)
+            print(f"  {skin}: 429, backing off {wait:.0f}s (retry {attempt + 1}/{MAX_429_RETRIES})")
+            await asyncio.sleep(wait)
+            continue
+
+        if res.status_code != 200:
+            print(f"  {skin}: HTTP {res.status_code}")
+            return None
+
+        return res
+
+    return None
+
+
 async def scrape(skins: list[str]) -> None:
     run_id = str(uuid.uuid4())
     print(f"run {run_id}: {len(skins)} skins")
@@ -62,24 +104,8 @@ async def scrape(skins: list[str]) -> None:
                 if i > 0:
                     await asyncio.sleep(REQUEST_SPACING_SECONDS)
 
-                try:
-                    res = await http.get(
-                        CSFLOAT_URL,
-                        params={
-                            "market_hash_name": skin,
-                            "sort_by": "lowest_price",
-                            "limit": LIMIT_PER_SKIN,
-                        },
-                    )
-                except httpx.RequestError as exc:
-                    print(f"  {skin}: network error ({exc.__class__.__name__})")
-                    continue
-
-                if res.status_code == 429:
-                    print(f"  {skin}: 429, stopping run")
-                    break
-                if res.status_code != 200:
-                    print(f"  {skin}: HTTP {res.status_code}")
+                res = await fetch_listings(http, skin)
+                if res is None:
                     continue
 
                 payload = res.json()
