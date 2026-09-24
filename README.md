@@ -105,11 +105,13 @@ All routes except `/` and auth require `Authorization: Bearer <token>`.
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/` | Health check. |
-| `POST` | `/api/auth/register` | New account. Body: `username`, `password`. |
+| `POST` | `/api/auth/register` | New account. Body: `username` (3-50 chars), `password` (8-72 bytes, bcrypt's limit). |
 | `POST` | `/api/auth/token` | OAuth2 password form. Returns a JWT. |
 | `GET` | `/api/auth/me` | Current user. |
 | `GET` | `/api/skins` | Every distinct `market_hash_name` on record, with its last-seen time. |
 | `GET` | `/api/listings` | Listings for one skin's latest scrape run. |
+
+Tokens expire after 24 hours. Five failed sign-ins for one username within 15 minutes lock it out with a `429` until the window passes; the counter lives in Redis and resets on a successful login.
 
 `/api/listings` requires `market_hash_name` and accepts `sort_by` (`best_deal` \| `lowest_price` \| `lowest_float` \| `most_recent`, default `best_deal`) and `limit` (1-50, default 20). Response includes each listing's `discount_pct` against the skin's 7-day baseline, plus `cached` (whether it came from the Redis cache).
 

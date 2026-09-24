@@ -9,15 +9,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from database import get_db, init_db, User, SkinListing
-from auth import verify_password, get_password_hash, create_access_token, get_current_user
+from auth import (
+    BCRYPT_MAX_BYTES,
+    DUMMY_PASSWORD_HASH,
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    verify_password,
+)
 
 REDIS_URL = os.environ["REDIS_URL"]
 CACHE_TTL_SECONDS = 300
 
 BASELINE_WINDOW_DAYS = 7
+
+LOGIN_MAX_FAILURES = 5
+LOGIN_LOCKOUT_SECONDS = 15 * 60
 
 VALID_SORTS = {"best_deal", "lowest_price", "lowest_float", "most_recent"}
 
@@ -51,12 +61,29 @@ async def health():
 
 class RegisterIn(BaseModel):
     username: str
-    password: str
+    password: str = Field(min_length=8)
+
+    @field_validator("username")
+    @classmethod
+    def normalize_username(cls, v: str) -> str:
+        v = v.strip().lower()
+        # Upper bound is the users.username column width; past it Postgres
+        # raises and the request would 500.
+        if not 3 <= len(v) <= 50:
+            raise ValueError("must be 3-50 characters")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > BCRYPT_MAX_BYTES:
+            raise ValueError(f"must be at most {BCRYPT_MAX_BYTES} bytes")
+        return v
 
 
 @app.post("/api/auth/register", status_code=201)
 async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
-    username = body.username.strip().lower()
+    username = body.username
 
     existing = await db.execute(select(User).where(User.username == username))
     if existing.scalar_one_or_none():
@@ -74,15 +101,44 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     username = form.username.strip().lower()
+
+    # Keyed on username rather than IP: behind nginx without proxy headers,
+    # every request arrives from the same address.
+    fail_key = f"login_failures:{username}"
+    try:
+        failures = int(await app.state.redis.get(fail_key) or 0)
+    except Exception:
+        failures = 0
+    if failures >= LOGIN_MAX_FAILURES:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed sign-in attempts. Try again later.",
+            headers={"Retry-After": str(LOGIN_LOCKOUT_SECONDS)},
+        )
+
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(form.password, user.hashed_password):
+    password_ok = verify_password(
+        form.password, user.hashed_password if user else DUMMY_PASSWORD_HASH
+    )
+    if not user or not password_ok:
+        try:
+            count = await app.state.redis.incr(fail_key)
+            if count == 1:
+                await app.state.redis.expire(fail_key, LOGIN_LOCKOUT_SECONDS)
+        except Exception:
+            pass
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             "Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    try:
+        await app.state.redis.delete(fail_key)
+    except Exception:
+        pass
 
     return {
         "access_token": create_access_token({"sub": user.username}),

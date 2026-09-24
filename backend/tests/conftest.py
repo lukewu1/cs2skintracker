@@ -26,6 +26,16 @@ class FakeRedis:
     async def setex(self, key, ttl, value):
         self._store[key] = value
 
+    async def incr(self, key):
+        self._store[key] = int(self._store.get(key, 0)) + 1
+        return self._store[key]
+
+    async def expire(self, key, ttl):
+        pass
+
+    async def delete(self, key):
+        self._store.pop(key, None)
+
 
 @pytest_asyncio.fixture
 async def db_session():

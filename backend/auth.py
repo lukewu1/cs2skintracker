@@ -11,11 +11,18 @@ from database import get_db, User
 
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+
+# bcrypt only looks at the first 72 bytes, and bcrypt>=5 raises on anything
+# longer rather than silently truncating.
+BCRYPT_MAX_BYTES = 72
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # Registration rejects passwords this long, so none can match.
+    if len(plain_password.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        return False
     return bcrypt.checkpw(
         plain_password.encode("utf-8"), 
         hashed_password.encode("utf-8")
@@ -24,6 +31,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+
+# Checked against when the username doesn't exist, so an unknown user takes
+# as long to reject as a wrong password and response time can't be used to
+# probe which usernames are registered.
+DUMMY_PASSWORD_HASH = get_password_hash("not-a-real-password")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
