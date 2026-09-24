@@ -10,7 +10,9 @@ LOCKFILE="/tmp/cs2skintracker-scrape.lock"
 # Hardcoded, not $HOME/... : launchd agents don't get HOME set in their
 # environment, so a $HOME-relative path silently resolved to nothing and
 # every scheduled reconnect failed with "Permission denied (publickey)".
-SSH_KEY="/Users/lukewu/Downloads/cs2-key.pem"
+# Kept in ~/.ssh, not ~/Downloads: macOS privacy protection blocks launchd
+# jobs from reading Downloads ("Load key ...: Operation not permitted").
+SSH_KEY="/Users/lukewu/.ssh/cs2-key.pem"
 TUNNEL_HOST="ubuntu@54.225.36.231"
 TUNNEL_LOCAL_PORT=5433
 TUNNEL_REMOTE_PORT=5432

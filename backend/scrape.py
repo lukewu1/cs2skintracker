@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError
 
 from database import AsyncSessionLocal, SkinListing, init_db
 
@@ -106,29 +107,39 @@ async def scrape(skins: list[str]) -> None:
     await init_db()
 
     written = 0
+    failed = 0
     async with httpx.AsyncClient(
         timeout=20.0, headers={"Authorization": CSFLOAT_API_KEY}
     ) as http:
-        async with AsyncSessionLocal() as db:
-            for i, skin in enumerate(skins):
-                if i > 0:
-                    await asyncio.sleep(REQUEST_SPACING_SECONDS)
+        for i, skin in enumerate(skins):
+            if i > 0:
+                await asyncio.sleep(REQUEST_SPACING_SECONDS)
 
-                res = await fetch_listings(http, skin)
-                if res is None:
-                    continue
+            res = await fetch_listings(http, skin)
+            if res is None:
+                continue
 
-                payload = res.json()
-                raw_listings = payload.get("data", []) if isinstance(payload, dict) else payload
+            payload = res.json()
+            raw_listings = payload.get("data", []) if isinstance(payload, dict) else payload
 
-                rows = [r for r in (normalize(r, run_id) for r in raw_listings) if r]
-                db.add_all(rows)
-                written += len(rows)
-                print(f"  {skin}: {len(rows)} listings")
+            rows = [r for r in (normalize(r, run_id) for r in raw_listings) if r]
 
-            await db.commit()
+            # Commit per skin, in a fresh session: a full run takes hours,
+            # and a single commit at the end meant one dropped tunnel lost
+            # the whole run. Now it loses only the skin in flight.
+            try:
+                async with AsyncSessionLocal() as db:
+                    db.add_all(rows)
+                    await db.commit()
+            except (SQLAlchemyError, OSError) as exc:
+                failed += 1
+                print(f"  {skin}: write failed ({exc.__class__.__name__})")
+                continue
 
-    print(f"wrote {written} rows")
+            written += len(rows)
+            print(f"  {skin}: {len(rows)} listings")
+
+    print(f"wrote {written} rows" + (f", {failed} skins failed to write" if failed else ""))
 
     async with AsyncSessionLocal() as db:
         total = await db.scalar(select(func.count()).select_from(SkinListing))
