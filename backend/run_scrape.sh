@@ -40,5 +40,5 @@ if ! lsof -nP -iTCP:"$TUNNEL_LOCAL_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 echo "$(date): starting scrape"
-"$VENV_PYTHON" scrape.py skins.txt
+"$VENV_PYTHON" -u scrape.py skins.txt  # -u: unbuffered, so the log shows progress live
 echo "$(date): scrape finished"

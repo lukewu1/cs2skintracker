@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -19,6 +20,32 @@ REQUEST_SPACING_SECONDS = 2.0
 MAX_429_RETRIES = 5
 BACKOFF_BASE_SECONDS = 10.0
 BACKOFF_MAX_SECONDS = 120.0
+
+# CSFloat allows 200 requests per rolling hour and reports the window in
+# x-ratelimit-remaining / x-ratelimit-reset (unix seconds). Waiting for the
+# reset beats blind backoff, which gave up after ~4.5 min and skipped skins
+# while the window was still closed. Capped in case a header is garbage.
+RATE_LIMIT_MAX_WAIT_SECONDS = 3700.0
+
+
+def rate_limit_wait(headers, now: float) -> float | None:
+    """Seconds until CSFloat's window reopens, or None if it doesn't say."""
+    reset = headers.get("x-ratelimit-reset")
+    if reset is not None:
+        try:
+            return min(max(float(reset) - now, 0.0) + 1.0, RATE_LIMIT_MAX_WAIT_SECONDS)
+        except ValueError:
+            pass
+
+    retry_after = headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            return min(max(float(retry_after), 0.0), RATE_LIMIT_MAX_WAIT_SECONDS)
+        except ValueError:
+            pass
+
+    return None
+
 
 DEFAULT_SKINS = [
     "AK-47 | Redline (Field-Tested)",
@@ -62,7 +89,12 @@ def normalize(raw: dict, run_id: str) -> SkinListing | None:
 
 
 async def fetch_listings(http: httpx.AsyncClient, skin: str) -> httpx.Response | None:
-    """GET one skin's listings, retrying on 429 with exponential backoff.
+    """GET one skin's listings, retrying on 429.
+
+    On a 429 it sleeps until the reset CSFloat reports, falling back to
+    exponential backoff when the response carries no reset. After a 200
+    that used up the window, it sleeps until the reset before returning,
+    so the next skin doesn't spend a request just to get a 429.
 
     Returns None (caller skips the skin) on repeated rate-limiting, a
     non-200/429 status, or a network error.
@@ -86,14 +118,22 @@ async def fetch_listings(http: httpx.AsyncClient, skin: str) -> httpx.Response |
             if attempt == MAX_429_RETRIES:
                 print(f"  {skin}: 429, giving up after {MAX_429_RETRIES} retries")
                 return None
-            wait = min(BACKOFF_BASE_SECONDS * (2 ** attempt), BACKOFF_MAX_SECONDS)
-            print(f"  {skin}: 429, backing off {wait:.0f}s (retry {attempt + 1}/{MAX_429_RETRIES})")
+            wait = rate_limit_wait(res.headers, time.time())
+            if wait is None:
+                wait = min(BACKOFF_BASE_SECONDS * (2 ** attempt), BACKOFF_MAX_SECONDS)
+            print(f"  {skin}: 429, waiting {wait:.0f}s (retry {attempt + 1}/{MAX_429_RETRIES})")
             await asyncio.sleep(wait)
             continue
 
         if res.status_code != 200:
             print(f"  {skin}: HTTP {res.status_code}")
             return None
+
+        if res.headers.get("x-ratelimit-remaining") == "0":
+            wait = rate_limit_wait(res.headers, time.time())
+            if wait:
+                print(f"  rate limit used up, waiting {wait:.0f}s for the window to reset")
+                await asyncio.sleep(wait)
 
         return res
 
