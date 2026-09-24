@@ -1,23 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clearToken } from '../auth'
+import { STORAGE_KEY, loadWatchlist } from '../watchlist'
 import './app.css'
-
-const STORAGE_KEY = 'watchlist'
-const DEFAULT_WATCHLIST = [
-  'AK-47 | Redline (Field-Tested)',
-  'AWP | Asiimov (Field-Tested)',
-]
-
-function loadWatchlist() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : null
-    return Array.isArray(parsed) ? parsed : DEFAULT_WATCHLIST
-  } catch {
-    return DEFAULT_WATCHLIST
-  }
-}
 
 function Home() {
   const navigate = useNavigate()

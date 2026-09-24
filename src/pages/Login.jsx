@@ -28,6 +28,10 @@ export default function Login() {
         setError('That email and password do not match an account.');
         return;
       }
+      if (res.status === 429) {
+        setError('Too many failed attempts. Wait 15 minutes, then try again.');
+        return;
+      }
       if (!res.ok) {
         setError('Something went wrong signing in. Try again.');
         return;
@@ -55,7 +59,7 @@ export default function Login() {
           <p className="auth-aside-copy">Watch the market so you don't have to.</p>
           <ul className="auth-points">
             <li>Live CSFloat listings, filtered by float and price</li>
-            <li>Watchlists tied to your account, not your browser</li>
+            <li>Discounts against each skin's own 7-day average</li>
             <li>Cached scans, so repeat searches return instantly</li>
           </ul>
         </div>

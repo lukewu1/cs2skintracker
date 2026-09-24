@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import main as main_module
 from database import SkinListing
 
 
@@ -69,6 +70,52 @@ async def test_login_rejects_unknown_user(client):
     res = await login(client, username="nobody")
     assert res.status_code == 401
 
+
+
+async def test_register_rejects_short_password(client):
+    res = await register(client, password="short")
+    assert res.status_code == 422
+
+
+async def test_register_rejects_password_over_bcrypt_limit(client):
+    # bcrypt>=5 raises past 72 bytes; this must be a 422, not a 500.
+    res = await register(client, password="a" * 73)
+    assert res.status_code == 422
+
+
+async def test_register_rejects_username_longer_than_column(client):
+    res = await register(client, username="a" * 51)
+    assert res.status_code == 422
+
+
+async def test_login_with_overlong_password_is_401_not_500(client):
+    await register(client)
+    res = await login(client, password="a" * 100)
+    assert res.status_code == 401
+
+
+async def test_login_locks_out_after_repeated_failures(client):
+    await register(client)
+    for _ in range(main_module.LOGIN_MAX_FAILURES):
+        res = await login(client, password="wrong-password")
+        assert res.status_code == 401
+
+    # Locked out even with the right password.
+    res = await login(client)
+    assert res.status_code == 429
+    assert "Retry-After" in res.headers
+
+
+async def test_successful_login_resets_failure_count(client):
+    await register(client)
+    for _ in range(main_module.LOGIN_MAX_FAILURES - 1):
+        await login(client, password="wrong-password")
+
+    assert (await login(client)).status_code == 200
+
+    # The counter restarted, so one more miss is a 401, not a lockout.
+    res = await login(client, password="wrong-password")
+    assert res.status_code == 401
 
 # --- /api/auth/me ---
 

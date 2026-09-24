@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_URL } from '../auth'
+import { API_URL } from '../auth';
 import { track } from '@vercel/analytics';
+import './auth.css';
 
 export default function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -32,6 +33,10 @@ export default function RegisterForm() {
         setError('That email already has an account. Sign in instead.');
         return;
       }
+      if (res.status === 422) {
+        setError('Use an email under 50 characters and a password of 8 to 72 characters.');
+        return;
+      }
       if (!res.ok) {
         setError('The account could not be created. Try again in a moment.');
         return;
@@ -49,11 +54,16 @@ export default function RegisterForm() {
   return (
     <div className="auth-page">
       <aside className="auth-aside">
-        <span className="auth-wordmark">Your app</span>
+        <div className="auth-logo">
+          <img src="/cs2skintracker.png" alt="" width="40" height="40" />
+          <span className="auth-wordmark">CS2 Skin Tracker</span>
+        </div>
+
         <div>
-          <p className="auth-aside-copy">Everything you save, in one place.</p>
+          <p className="auth-aside-copy">Watch the market so you don't have to.</p>
           <p className="auth-aside-note">
-            Your account keeps your work synced across every device you sign in on.
+            Every listing is priced against that skin's own 7-day average, so
+            underpriced ones stand out.
           </p>
         </div>
       </aside>
@@ -84,6 +94,7 @@ export default function RegisterForm() {
               name="email"
               autoComplete="email"
               placeholder="you@example.com"
+              maxLength={50}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -99,6 +110,7 @@ export default function RegisterForm() {
               autoComplete="new-password"
               placeholder="At least 8 characters"
               minLength={8}
+              maxLength={72}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
