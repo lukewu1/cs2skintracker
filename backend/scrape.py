@@ -27,6 +27,8 @@ BACKOFF_MAX_SECONDS = 120.0
 # while the window was still closed. Capped in case a header is garbage.
 RATE_LIMIT_MAX_WAIT_SECONDS = 3700.0
 
+MAX_CONSECUTIVE_WRITE_FAILURES = 5
+
 
 def rate_limit_wait(headers, now: float) -> float | None:
     """Seconds until CSFloat's window reopens, or None if it doesn't say."""
@@ -148,6 +150,7 @@ async def scrape(skins: list[str]) -> None:
 
     written = 0
     failed = 0
+    consecutive_failures = 0
     async with httpx.AsyncClient(
         timeout=20.0, headers={"Authorization": CSFLOAT_API_KEY}
     ) as http:
@@ -173,18 +176,30 @@ async def scrape(skins: list[str]) -> None:
                     await db.commit()
             except (SQLAlchemyError, OSError) as exc:
                 failed += 1
+                consecutive_failures += 1
                 print(f"  {skin}: write failed ({exc.__class__.__name__})")
+                # Several misses in a row means the tunnel is gone (usually
+                # the Mac slept), not one bad skin. Stop rather than spend
+                # CSFloat's 200/hour on rows that can't be saved; the next
+                # scheduled run reconnects the tunnel.
+                if consecutive_failures >= MAX_CONSECUTIVE_WRITE_FAILURES:
+                    print(f"  {consecutive_failures} writes failed in a row, database unreachable; stopping run")
+                    break
                 continue
 
+            consecutive_failures = 0
             written += len(rows)
             print(f"  {skin}: {len(rows)} listings")
 
     print(f"wrote {written} rows" + (f", {failed} skins failed to write" if failed else ""))
 
-    async with AsyncSessionLocal() as db:
-        total = await db.scalar(select(func.count()).select_from(SkinListing))
-        runs = await db.scalar(select(func.count(func.distinct(SkinListing.run_id))))
-        print(f"table now holds {total} rows across {runs} runs")
+    try:
+        async with AsyncSessionLocal() as db:
+            total = await db.scalar(select(func.count()).select_from(SkinListing))
+            runs = await db.scalar(select(func.count(func.distinct(SkinListing.run_id))))
+            print(f"table now holds {total} rows across {runs} runs")
+    except (SQLAlchemyError, OSError):
+        print("table totals unavailable: database unreachable")
 
 
 def load_skins_from_file(path: str) -> list[str]:

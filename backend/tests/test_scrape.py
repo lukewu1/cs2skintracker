@@ -1,3 +1,4 @@
+import scrape as scrape_module
 from scrape import RATE_LIMIT_MAX_WAIT_SECONDS, normalize, rate_limit_wait
 
 
@@ -112,3 +113,50 @@ def test_rate_limit_wait_falls_back_to_retry_after():
 def test_rate_limit_wait_none_without_usable_headers():
     assert rate_limit_wait({}, now=1000.0) is None
     assert rate_limit_wait({"x-ratelimit-reset": "soon"}, now=1000.0) is None
+
+
+# --- scrape() stops when the database is unreachable ---
+
+class _FakeResponse:
+    def json(self):
+        return {"data": [make_raw()]}
+
+
+class _DeadSession:
+    """Stands in for a session whose tunnel is gone: every commit fails."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def add_all(self, rows):
+        pass
+
+    async def commit(self):
+        raise OSError("Connect call failed")
+
+    async def scalar(self, stmt):
+        raise OSError("Connect call failed")
+
+
+async def test_scrape_stops_after_consecutive_write_failures(monkeypatch):
+    fetched = []
+
+    async def fake_fetch(http, skin):
+        fetched.append(skin)
+        return _FakeResponse()
+
+    async def no_init():
+        pass
+
+    monkeypatch.setattr(scrape_module, "fetch_listings", fake_fetch)
+    monkeypatch.setattr(scrape_module, "init_db", no_init)
+    monkeypatch.setattr(scrape_module, "AsyncSessionLocal", _DeadSession)
+    monkeypatch.setattr(scrape_module, "REQUEST_SPACING_SECONDS", 0)
+
+    await scrape_module.scrape([f"skin {i}" for i in range(20)])
+
+    # Stopped at the threshold instead of requesting all 20 skins.
+    assert len(fetched) == scrape_module.MAX_CONSECUTIVE_WRITE_FAILURES
