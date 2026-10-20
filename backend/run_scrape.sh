@@ -40,5 +40,8 @@ if ! lsof -nP -iTCP:"$TUNNEL_LOCAL_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 echo "$(date): starting scrape"
-"$VENV_PYTHON" scrape.py skins.txt
+# caffeinate -i: keep the Mac from idle-sleeping mid-run, which kills the
+# SSH tunnel. (A closed lid on battery still sleeps.) -u: unbuffered, so
+# the log shows progress live.
+caffeinate -i "$VENV_PYTHON" -u scrape.py skins.txt
 echo "$(date): scrape finished"
