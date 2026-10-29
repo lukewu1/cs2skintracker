@@ -153,6 +153,17 @@ async def me(user: User = Depends(get_current_user)):
 
 @app.get("/api/skins")
 async def skins(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # The watchlist page loads this on every visit to validate names, and
+    # it's a GROUP BY over every snapshot ever scraped, so cache it like
+    # listings. A new skin shows up at most CACHE_TTL_SECONDS late.
+    cache_key = "skins:all"
+    try:
+        cached = await app.state.redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
     rows = await db.execute(
         select(
             SkinListing.market_hash_name,
@@ -160,12 +171,19 @@ async def skins(user: User = Depends(get_current_user), db: AsyncSession = Depen
         ).group_by(SkinListing.market_hash_name)
          .order_by(SkinListing.market_hash_name)
     )
-    return {
+    payload = {
         "skins": [
             {"market_hash_name": name, "last_seen": last_seen.isoformat()}
             for name, last_seen in rows.all()
         ]
     }
+
+    try:
+        await app.state.redis.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(payload))
+    except Exception:
+        pass
+
+    return payload
 
 
 @app.get("/api/listings")

@@ -170,6 +170,35 @@ async def test_skins_lists_distinct_names(client, db_session):
     assert names == ["AK-47 | Redline (Field-Tested)", "AWP | Asiimov (Field-Tested)"]
 
 
+async def test_skins_response_is_cached(client, db_session):
+    db_session.add(
+        SkinListing(
+            listing_id="1",
+            run_id="run-1",
+            market_hash_name="AK-47 | Redline (Field-Tested)",
+            price_usd=20.0,
+        )
+    )
+    await db_session.commit()
+
+    headers = await auth_headers(client)
+    first = await client.get("/api/skins", headers=headers)
+
+    db_session.add(
+        SkinListing(
+            listing_id="2",
+            run_id="run-2",
+            market_hash_name="AWP | Asiimov (Field-Tested)",
+            price_usd=40.0,
+        )
+    )
+    await db_session.commit()
+
+    second = await client.get("/api/skins", headers=headers)
+    assert second.json() == first.json()
+    assert len(second.json()["skins"]) == 1
+
+
 # --- /api/listings ---
 
 async def test_listings_requires_auth(client):

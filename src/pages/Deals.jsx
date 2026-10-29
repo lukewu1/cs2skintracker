@@ -13,6 +13,9 @@ function Deals() {
   const [error, setError] = useState(null)
   const [sortBy, setSortBy] = useState('best_deal')
   const [skinQuery, setSkinQuery] = useState('')
+  // Names that came back with no listings: a typo, or a skin the scraper
+  // doesn't cover. Shown so an empty table isn't a silent mystery.
+  const [missing, setMissing] = useState([])
 
   // Router state is lost on refresh, so fall back to the saved watchlist.
   const watchlist = location.state?.watchlist || loadWatchlist()
@@ -22,6 +25,7 @@ function Deals() {
     setLoading(true)
     setError(null)
     setListings([])
+    setMissing([])
 
     try {
       for (let i = 0; i < itemsToFetch.length; i++) {
@@ -39,6 +43,9 @@ function Deals() {
 
         const data = await response.json()
         const newListings = data.listings || []
+        if (newListings.length === 0) {
+          setMissing((prev) => [...prev, skinName])
+        }
 
         setListings((prevListings) => [...prevListings, ...newListings])
       }
@@ -130,6 +137,15 @@ function Deals() {
             <circle cx="8" cy="11.4" r="0.9" fill="currentColor" />
           </svg>
           <span>{error}</span>
+        </div>
+      )}
+
+      {!error && !loading && missing.length > 0 && (
+        <div className="app-error" role="status">
+          <span>
+            No listings found for {missing.map((name) => `"${name}"`).join(', ')}.
+            Check the spelling and wear, or pick it from the watchlist page.
+          </span>
         </div>
       )}
 
