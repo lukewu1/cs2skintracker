@@ -24,18 +24,18 @@ Everything else is conventional: FastAPI with SQLAlchemy and Pydantic, JWT auth 
 
 ## Query performance
 
-`GET /api/listings` always filters on `market_hash_name` and either sorts on `price_usd` or `fetched_at`. Two composite indexes on `skin_listings` (`backend/database.py`) cover that:
+`GET /api/listings` always filters on `market_hash_name`. One composite index on `skin_listings` (`backend/database.py`) does the heavy lifting:
 
 ```python
-__table_args__ = (
-    Index("idx_skin_name_fetched", "market_hash_name", "fetched_at"),
-    Index("idx_skin_name_price", "market_hash_name", "price_usd"),
-)
+Index("idx_skin_name_fetched", "market_hash_name", "fetched_at")
 ```
 
-<!-- TODO: replace this with a real EXPLAIN ANALYZE run against skin_listings
-     for a skin with meaningful row counts. A measured number with a plan
-     behind it is worth more than any adjective. -->
+It serves both lookups. Measured with `EXPLAIN ANALYZE` in production, with the table at ~1.16M rows:
+
+- **7-day baseline** (`avg(price_usd)` for one skin since 7 days ago): a bitmap index scan on `idx_skin_name_fetched` finds the 600 matching rows in ~1 ms; the whole query runs in ~6.5 ms.
+- **Newest run's listings, sorted by price**: a backward scan on the same index finds the newest run in ~0.1 ms; that run's ~20 rows are then sorted in memory. ~2 ms total.
+
+There used to be a `(market_hash_name, price_usd)` index for the price sort. Postgres's index usage stats showed it had been used 9 times while taking 118 MB, the largest index on the table: since each query only needs the newest run's ~20 rows, sorting them in memory beats walking every run's rows in price order. It was dropped.
 
 ## Setup
 
