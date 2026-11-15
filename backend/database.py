@@ -65,10 +65,11 @@ class SkinListing(Base):
     )
 
     __table_args__ = (
-        # Serving query: newest rows for one skin.
+        # Finds a skin's newest run and its 7-day baseline window. There is
+        # deliberately no (name, price) index: listings filter to the newest
+        # run (~20 rows) and Postgres sorts those in memory, so it went unused
+        # while being the largest index on the table.
         Index("idx_skin_name_fetched", "market_hash_name", "fetched_at"),
-        # Price history for one skin over time.
-        Index("idx_skin_name_price", "market_hash_name", "price_usd"),
     )
 
 
